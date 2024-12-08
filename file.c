@@ -33,7 +33,7 @@ static ssize_t osfs_read(struct file *filp, char __user *buf, size_t len, loff_t
     if (*ppos + len > osfs_inode->i_size)
         len = osfs_inode->i_size - *ppos;
 
-    data_block = sb_info->data_blocks + osfs_inode->i_blocks * BLOCK_SIZE + *ppos;
+    data_block = sb_info->data_blocks + osfs_inode->i_block * BLOCK_SIZE + *ppos;
     if (copy_to_user(buf, data_block, len))
         return -EFAULT;
 
