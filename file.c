@@ -27,13 +27,17 @@ static ssize_t osfs_read(struct file *filp, char __user *buf, size_t len, loff_t
     if (osfs_inode->i_blocks == 0)
         return 0;
 
+    // if offset out of file size, return 0
     if (*ppos >= osfs_inode->i_size)
         return 0;
 
+    // if the read length exceeds the file size, adjust the length
     if (*ppos + len > osfs_inode->i_size)
         len = osfs_inode->i_size - *ppos;
 
+    // (data_blocks start address) + (block index * block size) + (seek_offset)
     data_block = sb_info->data_blocks + osfs_inode->i_block * BLOCK_SIZE + *ppos;
+    // copy len bytes from data_block to user space
     if (copy_to_user(buf, data_block, len))
         return -EFAULT;
 
