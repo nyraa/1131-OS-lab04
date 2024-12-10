@@ -79,6 +79,7 @@ struct inode *osfs_iget(struct super_block *sb, unsigned long ino)
     inode->__i_ctime = osfs_inode->__i_ctime;
     inode->i_size = osfs_inode->i_size;
     inode->i_blocks = osfs_inode->i_blocks;
+    // link to internal osfs_inode
     inode->i_private = osfs_inode;
 
     if (S_ISDIR(inode->i_mode)) {

@@ -229,7 +229,7 @@ static int osfs_add_dir_entry(struct inode *dir, uint32_t inode_no, const char *
         }
     }
 
-    // Add a new directory entry
+    // Append a new directory entry
     strncpy(dir_entries[dir_entry_count].filename, name, name_len);
     dir_entries[dir_entry_count].filename[name_len] = '\0';
     dir_entries[dir_entry_count].inode_no = inode_no;
@@ -266,6 +266,10 @@ static int osfs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry
     int ret;
 
     // Step2: Validate the file name length
+    if(dentry->d_name.len > MAX_FILENAME_LEN) {
+        pr_err("osfs_create: File name too long\n");
+        return -ENAMETOOLONG;
+    }
 
 
     // Step3: Allocate and initialize VFS & osfs inode
