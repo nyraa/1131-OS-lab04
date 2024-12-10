@@ -11,5 +11,16 @@ all:
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
 
+load:
+	sudo insmod osfs.ko
 
+unload:
+	sudo rmmod osfs
 
+mount:
+	mkdir -p mnt
+	sudo mount -t osfs none mnt/
+
+umount:
+	sudo umount mnt/
+	rmdir mnt

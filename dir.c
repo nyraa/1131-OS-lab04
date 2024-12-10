@@ -297,7 +297,7 @@ static int osfs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry
     }
 
     // Step 5: Update the parent directory's metadata 
-    dir->i_mtime = dir->i_ctime = current_time(dir);
+    dir->__i_mtime = parent_inode->__i_mtime = current_time(dir);
     
     // Step 6: Bind the inode to the VFS dentry
     d_instantiate(dentry, inode);
