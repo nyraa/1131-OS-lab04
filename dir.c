@@ -87,6 +87,7 @@ static int osfs_iterate(struct file *filp, struct dir_context *ctx)
         struct osfs_dir_entry *entry = &dir_entries[i];
         unsigned int type = DT_UNKNOWN;
 
+        pr_info("osfs_iterate: Entry %d: '%s' (inode %u)\n", i, entry->filename, entry->inode_no);
         if (!dir_emit(ctx, entry->filename, strlen(entry->filename), entry->inode_no, type)) {
             pr_err("osfs_iterate: dir_emit failed for entry '%s'\n", entry->filename);
             return -EINVAL;
@@ -208,11 +209,13 @@ static int osfs_add_dir_entry(struct inode *dir, uint32_t inode_no, const char *
     int dir_entry_count;
     int i;
 
+    pr_info("osfs_add_dir_entry: Adding entry '%.*s' to inode %lu\n", (int)name_len, name, dir->i_ino);
     // Read the parent directory's data block
     dir_data_block = sb_info->data_blocks + parent_inode->i_block * BLOCK_SIZE;
 
     // Calculate the existing number of directory entries
     dir_entry_count = parent_inode->i_size / sizeof(struct osfs_dir_entry);
+    pr_info("osfs_add_dir_entry: Directory has %d entries\n", dir_entry_count);
     if (dir_entry_count >= MAX_DIR_ENTRIES) {
         pr_err("osfs_add_dir_entry: Parent directory is full\n");
         return -ENOSPC;
@@ -228,6 +231,7 @@ static int osfs_add_dir_entry(struct inode *dir, uint32_t inode_no, const char *
             return -EEXIST;
         }
     }
+    pr_info("osfs_add_dir_entry: Adding entry '%.*s' to inode %lu at position %d\n", (int)name_len, name, dir->i_ino, dir_entry_count);
 
     // Append a new directory entry
     strncpy(dir_entries[dir_entry_count].filename, name, name_len);
@@ -332,9 +336,6 @@ static int osfs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry 
         return -EIO;
     }
 
-    osfs_inode->i_block = 0;
-    osfs_inode->i_size = 0;
-    osfs_inode->i_blocks = 0;
 
     ret = osfs_add_dir_entry(dir, inode->i_ino, dentry->d_name.name, dentry->d_name.len);
     if (ret) {
