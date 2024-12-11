@@ -107,11 +107,15 @@ int osfs_fill_super(struct super_block *sb, void *data, int silent)
     root_osfs_inode->i_ino = ROOT_INODE;
     root_osfs_inode->i_mode = root_inode->i_mode;
     root_osfs_inode->i_links_count = 2;
+    root_osfs_inode->i_size = 0;
+    root_osfs_inode->i_blocks = 1;      // one block for root directory
+    root_osfs_inode->i_block = 0;       // First data block
     root_osfs_inode->__i_atime = root_osfs_inode->__i_mtime = root_osfs_inode->__i_ctime = current_time(root_inode);
     root_inode->i_private = root_osfs_inode;
 
     // Mark root directory inode as used
     set_bit(ROOT_INODE, sb_info->inode_bitmap);
+    set_bit(0, sb_info->block_bitmap); // Mark the first data block as used
 
     // Update root directory size
     root_inode->i_size = 0;

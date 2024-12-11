@@ -112,6 +112,7 @@ int osfs_alloc_data_block(struct osfs_sb_info *sb_info, uint32_t *block_no)
 
     for (i = 0; i < sb_info->block_count; i++) {
         if (!test_bit(i, sb_info->block_bitmap)) {
+            pr_info("osfs_alloc_data_block: Allocated block %u\n", i);
             set_bit(i, sb_info->block_bitmap);
             sb_info->nr_free_blocks--;
             *block_no = i;
