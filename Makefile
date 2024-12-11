@@ -5,6 +5,8 @@ obj-m += osfs.o
 
 osfs-objs := super.o inode.o file.o dir.o osfs_init.o
 
+.PHONY: all clean load unload mount umount
+
 all:
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 

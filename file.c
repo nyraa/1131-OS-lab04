@@ -105,7 +105,7 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
         return -EFAULT;
 
     // Step5: Update inode & osfs_inode attribute
-    osfs_inode->i_size += len;
+    osfs_inode->i_size = *ppos + len;
     inode->i_size = osfs_inode->i_size;
     *ppos += len;
     bytes_written = len;
