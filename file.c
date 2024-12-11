@@ -34,6 +34,8 @@ static ssize_t osfs_read(struct file *filp, char __user *buf, size_t len, loff_t
     // if the read length exceeds the file size, adjust the length
     if (*ppos + len > osfs_inode->i_size)
         len = osfs_inode->i_size - *ppos;
+    
+    pr_info("osfs_read: Reading %ld bytes from %lld\n", len, *ppos);
 
     // (data_blocks start address) + (block index * block size) + (seek_offset)
     data_block = sb_info->data_blocks + osfs_inode->i_block * BLOCK_SIZE + *ppos;
@@ -71,6 +73,7 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
     ssize_t bytes_written;
     int ret;
 
+    pr_info("osfs_write: Writing %ld bytes from %lld\n", len, *ppos);
     // Step2: Check if a data block has been allocated; if not, allocate one
     if(osfs_inode->i_blocks == 0)
     {
@@ -80,12 +83,12 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
             pr_err("osfs_write: Failed to allocate data block\n");
             return ret;
         }
+        osfs_inode->i_size = 0;
+        inode->i_size = 0;
+        // allocated 1 block
+        osfs_inode->i_blocks = 1;
+        inode->i_blocks = 1;
     }
-    osfs_inode->i_size = 0;
-    inode->i_size = 0;
-    // allocated 1 block
-    osfs_inode->i_blocks = 1;
-    inode->i_blocks = 1;
 
     // Step3: Limit the write length to fit within one data block
     if(*ppos >= osfs_inode->i_blocks * BLOCK_SIZE)
@@ -109,7 +112,7 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
 
     // Step6: Return the number of bytes written
 
-    
+    pr_info("osfs_write: %ld bytes written\n", bytes_written);
     return bytes_written;
 }
 
