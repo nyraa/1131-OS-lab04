@@ -265,6 +265,8 @@ static int osfs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry
     struct inode *inode;
     int ret;
 
+    pr_info("osfs_create: Create a new file\n");
+
     // Step2: Validate the file name length
     if(dentry->d_name.len > MAX_FILENAME_LEN) {
         pr_err("osfs_create: File name too long\n");
@@ -308,12 +310,54 @@ static int osfs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry
     return 0;
 }
 
+static int osfs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode)
+{
+    struct osfs_inode *parent_inode = dir->i_private;
+    struct osfs_inode *osfs_inode;
+    struct inode *inode;
+    int ret;
 
+    pr_info("osfs_mkdir: Create a new directory\n");
+
+    if (dentry->d_name.len > MAX_FILENAME_LEN) {
+        pr_err("osfs_mkdir: Directory name too long\n");
+        return -ENAMETOOLONG;
+    }
+
+    inode = osfs_new_inode(dir, S_IFDIR | mode);
+    osfs_inode = inode->i_private;
+    if (!osfs_inode) {
+        pr_err("osfs_mkdir: Failed to get osfs_inode for inode %lu\n", inode->i_ino);
+        iput(inode);
+        return -EIO;
+    }
+
+    osfs_inode->i_block = 0;
+    osfs_inode->i_size = 0;
+    osfs_inode->i_blocks = 0;
+
+    ret = osfs_add_dir_entry(dir, inode->i_ino, dentry->d_name.name, dentry->d_name.len);
+    if (ret) {
+        pr_err("osfs_mkdir: Failed to add directory entry\n");
+        iput(inode);
+        return ret;
+    }
+
+    dir->__i_mtime = parent_inode->__i_mtime = current_time(dir);
+
+    d_instantiate(dentry, inode);
+
+    pr_info("osfs_mkdir: Directory '%.*s' created with inode %lu\n",
+            (int)dentry->d_name.len, dentry->d_name.name, inode->i_ino);
+
+    return 0;
+}
 
 const struct inode_operations osfs_dir_inode_operations = {
     .lookup = osfs_lookup,
     .create = osfs_create,
     // Add other operations as needed
+    .mkdir = osfs_mkdir,
 };
 
 const struct file_operations osfs_dir_operations = {
