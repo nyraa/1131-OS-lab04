@@ -21,7 +21,7 @@ static ssize_t osfs_read(struct file *filp, char __user *buf, size_t len, loff_t
     struct osfs_inode *osfs_inode = inode->i_private;
     struct osfs_sb_info *sb_info = inode->i_sb->s_fs_info;
     void *data_block;
-    ssize_t bytes_read;
+    ssize_t bytes_read = 0;
 
     // If the file has not been allocated a data block, it indicates the file is empty
     if (osfs_inode->i_blocks == 0)
@@ -35,16 +35,37 @@ static ssize_t osfs_read(struct file *filp, char __user *buf, size_t len, loff_t
     if (*ppos + len > osfs_inode->i_size)
         len = osfs_inode->i_size - *ppos;
     
+    ssize_t bytes_to_read = len;
+    
     pr_info("osfs_read: Reading %ld bytes from %lld\n", len, *ppos);
 
-    // (data_blocks start address) + (block index * block size) + (seek_offset)
-    data_block = sb_info->data_blocks + osfs_inode->i_block * BLOCK_SIZE + *ppos;
-    // copy len bytes from data_block to user space
-    if (copy_to_user(buf, data_block, len))
-        return -EFAULT;
+    // traverse to the block containing ppos
+    uint32_t fat_block_pointer = osfs_inode->i_block;
+    uint32_t current_block_index = 0;
+    while(*ppos > (current_block_index + 1) * BLOCK_SIZE)
+    {
+        fat_block_pointer = sb_info->fat[fat_block_pointer];
+        current_block_index++;
+    }
 
-    *ppos += len;
-    bytes_read = len;
+    // read data
+    while(bytes_to_read > 0)
+    {
+        ssize_t current_block_bytes_to_read = (*ppos % BLOCK_SIZE + bytes_to_read) > BLOCK_SIZE ? (BLOCK_SIZE - *ppos % BLOCK_SIZE) : bytes_to_read;
+        pr_info("osfs_read: Reading %ld bytes from block %u\n", current_block_bytes_to_read, fat_block_pointer);
+        data_block = sb_info->data_blocks + fat_block_pointer * BLOCK_SIZE + *ppos % BLOCK_SIZE;
+        if(copy_to_user(buf + bytes_read, data_block, current_block_bytes_to_read))
+        {
+            return -EFAULT;
+        }
+        bytes_read += current_block_bytes_to_read;
+        bytes_to_read -= current_block_bytes_to_read;
+        fat_block_pointer = sb_info->fat[fat_block_pointer];
+        current_block_index++;
+    }
+
+    *ppos += bytes_read;
+    pr_info("osfs_read: %ld bytes read\n", bytes_read);
 
     return bytes_read;
 }
@@ -108,6 +129,7 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
                 pr_err("osfs_write: Failed to allocate data block\n");
                 return ret;
             }
+            pr_info("osfs_write: Allocated new block %u\n", new_block);
             // update fat
             sb_info->fat[fat_block_pointer] = new_block;
             fat_block_pointer = new_block;
@@ -135,6 +157,7 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
             bytes_written += current_block_bytes_to_write;
             bytes_to_write -= current_block_bytes_to_write;
         }
+        current_block_index++;
     }
 
     // Update inode & osfs_inode attribute
@@ -145,7 +168,7 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
 
     // Step6: Return the number of bytes written
 
-    pr_info("osfs_write: %ld bytes written\n", bytes_written);
+    pr_info("osfs_write: %ld bytes written, new size: %u\n", bytes_written, osfs_inode->i_size);
     return bytes_written;
 }
 
