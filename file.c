@@ -90,6 +90,14 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
     struct inode *inode = file_inode(filp);
     struct osfs_inode *osfs_inode = inode->i_private;
     struct osfs_sb_info *sb_info = inode->i_sb->s_fs_info;
+
+    // Check if the file is opened in append mode
+    if(filp->f_flags & O_APPEND)
+    {
+        pr_info("osfs_write: Append mode selected\n");
+        *ppos = osfs_inode->i_size;
+    }
+
     void *data_block;
     ssize_t bytes_written = 0;
     ssize_t bytes_to_write = len;
