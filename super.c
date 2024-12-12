@@ -45,6 +45,7 @@ int osfs_fill_super(struct super_block *sb, void *data, int silent)
     total_memory_size = sizeof(struct osfs_sb_info) +
                         INODE_BITMAP_SIZE * sizeof(unsigned long) +
                         BLOCK_BITMAP_SIZE * sizeof(unsigned long) +
+                        FAT_SIZE +
                         INODE_COUNT * sizeof(struct osfs_inode) +
                         DATA_BLOCK_COUNT * BLOCK_SIZE;
 
@@ -67,7 +68,8 @@ int osfs_fill_super(struct super_block *sb, void *data, int silent)
     // Partition the memory region into respective components
     sb_info->inode_bitmap = (unsigned long *)(sb_info + 1);
     sb_info->block_bitmap = sb_info->inode_bitmap + INODE_BITMAP_SIZE;
-    sb_info->inode_table = (void *)(sb_info->block_bitmap + BLOCK_BITMAP_SIZE);
+    sb_info->fat = (uint32_t *)(sb_info->block_bitmap + BLOCK_BITMAP_SIZE);
+    sb_info->inode_table = (void *)(sb_info->fat + FAT_SIZE);
     sb_info->data_blocks = (void *)((char *)sb_info->inode_table +
                                     INODE_COUNT * sizeof(struct osfs_inode));
 

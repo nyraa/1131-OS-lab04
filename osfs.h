@@ -14,6 +14,8 @@
 //#define BLOCK_SIZE 4096       // Each data block size is 4KB
 #define INODE_COUNT 20         // Maximum of 20 inodes in the filesystem
 #define DATA_BLOCK_COUNT 20    // Assume there are 20 data blocks
+#define FAT_COUNT (DATA_BLOCK_COUNT)
+#define FAT_SIZE (FAT_COUNT * sizeof(uint32_t))
 #define MAX_FILENAME_LEN 255
 #define MAX_DIR_ENTRIES (BLOCK_SIZE / sizeof(struct osfs_dir_entry))
 
@@ -38,6 +40,7 @@ struct osfs_sb_info {
     uint32_t nr_free_blocks;     // Number of free data blocks
     unsigned long *inode_bitmap; // Pointer to the inode bitmap
     unsigned long *block_bitmap; // Pointer to the data block bitmap
+    uint32_t *fat;               // Pointer to the file allocation table
     void *inode_table;           // Pointer to the inode table
     void *data_blocks;           // Pointer to the data blocks area
 };
