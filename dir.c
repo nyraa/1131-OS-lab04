@@ -179,16 +179,20 @@ struct inode *osfs_new_inode(const struct inode *dir, umode_t mode)
     osfs_inode->i_uid = i_uid_read(inode);
     osfs_inode->i_gid = i_gid_read(inode);
     osfs_inode->i_size = inode->i_size;
-    osfs_inode->i_blocks = 1; // Simplified handling
+    osfs_inode->i_blocks = 0; // Simplified handling
     osfs_inode->__i_atime = osfs_inode->__i_mtime = osfs_inode->__i_ctime = current_time(inode);
     inode->i_private = osfs_inode;
 
-    /* Allocate data block */
-    ret = osfs_alloc_data_block(sb_info, &osfs_inode->i_block);
-    if (ret) {
-        pr_err("osfs_new_inode: Failed to allocate data block\n");
-        iput(inode);
-        return ERR_PTR(ret);
+    /* Allocate data block only if folder and link type */
+    if(!S_ISREG(mode))
+    {
+        ret = osfs_alloc_data_block(sb_info, &osfs_inode->i_block);
+        if (ret) {
+            pr_err("osfs_new_inode: Failed to allocate data block\n");
+            iput(inode);
+            return ERR_PTR(ret);
+        }
+        osfs_inode->i_blocks = 1;
     }
 
     /* Update superblock information */
