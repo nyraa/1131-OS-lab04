@@ -70,7 +70,8 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
     struct osfs_inode *osfs_inode = inode->i_private;
     struct osfs_sb_info *sb_info = inode->i_sb->s_fs_info;
     void *data_block;
-    ssize_t bytes_written;
+    ssize_t bytes_written = 0;
+    ssize_t bytes_to_write = len;
     int ret;
 
     pr_info("osfs_write: Writing %ld bytes from %lld\n", len, *ppos);
@@ -90,25 +91,72 @@ static ssize_t osfs_write(struct file *filp, const char __user *buf, size_t len,
         inode->i_blocks = 1;
     }
 
-    // Step3: Limit the write length to fit within one data block
-    if(*ppos >= osfs_inode->i_blocks * BLOCK_SIZE)
-        return -ENOSPC;
-    if(*ppos + len > osfs_inode->i_blocks * BLOCK_SIZE)
+    // Step3:
+    // Allocate blank blocks between current end to ppos
+    uint32_t new_block;
+    uint32_t fat_block_pointer = osfs_inode->i_block;
+    uint32_t pos;
+    uint32_t block_count;
+
+    // go to last valid block or block ppos points to
+    for(pos = 0, block_count = 0; pos + BLOCK_SIZE < *ppos && block_count < osfs_inode->i_blocks; pos += BLOCK_SIZE, ++block_count)
     {
-        // adjust blocks if multiple blocks support
-        len = osfs_inode->i_blocks * BLOCK_SIZE - *ppos;
+        fat_block_pointer = sb_info->fat[fat_block_pointer];
+    }
+    // allocate new empty blocks until reach ppos position
+    // while ppos not in position of last block
+    while(pos + BLOCK_SIZE < *ppos)
+    {
+        // append new block
+        ret = osfs_alloc_data_block(sb_info, &new_block);
+        if(ret)
+        {
+            pr_err("osfs_write: Failed to allocate data block\n");
+            return ret;
+        }
+        memset(sb_info->data_blocks + new_block * BLOCK_SIZE, 0, BLOCK_SIZE);
+        osfs_inode->i_blocks++;
+        inode->i_blocks = osfs_inode->i_blocks;
+        sb_info->fat[fat_block_pointer] = new_block;
+        fat_block_pointer = new_block;
+        pos += BLOCK_SIZE;
+    }
+    // write data to the last block
+    ssize_t remaining_bytes = *ppos - pos;
+    data_block = sb_info->data_blocks + fat_block_pointer * BLOCK_SIZE + (*ppos % BLOCK_SIZE);
+    if(copy_from_user(data_block, buf, remaining_bytes))
+        return -EFAULT;
+    bytes_to_write -= remaining_bytes;
+    bytes_written += remaining_bytes;
+
+    // allocate new blocks and write data to them
+    while(*ppos + len > osfs_inode->i_blocks * BLOCK_SIZE)
+    {
+        ret = osfs_alloc_data_block(sb_info, &new_block);
+        if(ret)
+        {
+            pr_err("osfs_write: Failed to allocate data block\n");
+            return ret;
+        }
+        osfs_inode->i_blocks++;
+        inode->i_blocks = osfs_inode->i_blocks;
+        sb_info->fat[fat_block_pointer] = new_block;
+        fat_block_pointer = new_block;
+        data_block = sb_info->data_blocks + new_block * BLOCK_SIZE;
+        // write min(BLOCK_SIZE, bytes_to_write) bytes to the new block
+        ssize_t current_block_bytes_to_write = bytes_to_write < BLOCK_SIZE ? bytes_to_write : BLOCK_SIZE;
+        if(copy_from_user(data_block, buf + bytes_written, current_block_bytes_to_write))
+            return -EFAULT;
+        bytes_to_write -= current_block_bytes_to_write;
+        bytes_written += current_block_bytes_to_write;
+
     }
 
-    // Step4: Write data from user space to the data block
-    data_block = sb_info->data_blocks + osfs_inode->i_block * BLOCK_SIZE + *ppos;
-    if(copy_from_user(data_block, buf, len))
-        return -EFAULT;
-
     // Step5: Update inode & osfs_inode attribute
-    osfs_inode->i_size = *ppos + len;
+    // extend size if needed
+    osfs_inode->i_size = (*ppos + bytes_written) > osfs_inode->i_size ? (*ppos + bytes_written) : osfs_inode->i_size;
     inode->i_size = osfs_inode->i_size;
-    *ppos += len;
-    bytes_written = len;
+    *ppos += bytes_written;
 
     // Step6: Return the number of bytes written
 

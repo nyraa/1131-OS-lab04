@@ -289,9 +289,7 @@ static int osfs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry
         return -EIO;
     }
     // init osfs_inode attribute
-    osfs_inode->i_block = 0; 
     osfs_inode->i_size = 0;
-    osfs_inode->i_blocks = 0;
 
     // Step4: Parent directory entry update for the new file
     ret = osfs_add_dir_entry(dir, inode->i_ino, dentry->d_name.name, dentry->d_name.len);
